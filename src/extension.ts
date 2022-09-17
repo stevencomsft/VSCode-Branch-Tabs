@@ -6,6 +6,7 @@ import {
   ExtensionContext,
   extensions,
   Uri,
+  window,
   workspace,
 } from "vscode";
 import { GitExtension, Repository } from "./git";
@@ -16,20 +17,6 @@ const PREV_BRANCH_NAME_KEY = "branchTabs_prevBranchName";
 
 function getBranchDocsKey(branchName: string) {
   return `branchTabs_${branchName}_openDocs`;
-}
-
-function openFilesInSync(uris: Uri[], index: number) {
-  if (index >= uris.length) {
-    return;
-  }
-
-  commands
-    .executeCommand("vscode.open", Uri.file(uris[index].path))
-    .then(() => {
-      commands.executeCommand("workbench.action.keepEditor").then(() => {
-        openFilesInSync(uris, index + 1);
-      });
-    });
 }
 
 // this method is called when your extension is activated
@@ -64,7 +51,13 @@ export function activate(context: ExtensionContext) {
             commands
               .executeCommand("workbench.action.closeAllEditors")
               .then(() => {
-                openFilesInSync(prevBranchDocUris, 0);
+                prevBranchDocUris.forEach(async (doc) => {
+                  await workspace
+                    .openTextDocument(Uri.file(doc.path))
+                    .then((doc) =>
+                      window.showTextDocument(doc, { preview: false })
+                    );
+                });
               });
           }
         }
