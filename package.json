@@ -5,6 +5,7 @@
   "license": "MIT",
   "repository": "https://github.com/stevencomsft/VSCodeBranchTabs",
   "version": "0.0.2",
+  "publisher": "stevencoMsft",
   "engines": {
     "vscode": "^1.71.0"
   },
