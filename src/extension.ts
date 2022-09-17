@@ -1,27 +1,12 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import { Uri, ViewColumn } from "vscode";
-import { APIState, GitExtension, Repository } from "./git";
+import { GitExtension, Repository } from "./git";
 
 const PREV_BRANCH_NAME_KEY = "branchTabs_prevBranchName";
 
 function getBranchDocsKey(branchName: string) {
   return `branchTabs_${branchName}_openDocs`;
-}
-
-function openFilesInSync(uris: vscode.Uri[], index: number) {
-  if (index >= uris.length) {
-    return;
-  }
-
-  vscode.commands
-    .executeCommand("vscode.open", Uri.file(uris[index].path))
-    .then(() => {
-      vscode.commands.executeCommand("workbench.action.keepEditor").then(() => {
-        openFilesInSync(uris, index + 1);
-      });
-    });
 }
 
 // this method is called when your extension is activated
@@ -61,7 +46,13 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.commands
               .executeCommand("workbench.action.closeAllEditors")
               .then(() => {
-                openFilesInSync(prevBranchDocUris, 0);
+                prevBranchDocUris.forEach((docUri) => {
+                  vscode.workspace
+                    .openTextDocument(vscode.Uri.file(docUri.path))
+                    .then((doc) =>
+                      vscode.window.showTextDocument(doc, { preview: false })
+                    );
+                });
               });
           }
         }
