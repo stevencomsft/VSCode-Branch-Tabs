@@ -7,6 +7,13 @@ import {
   Disposable,
 } from "vscode";
 
+interface IBranchMemExpiries {
+  [branchName: string]: number;
+}
+
+const BRANCH_MEM_EXPIRIES_KEY = "BRANCH_MEM_EXPIRIES";
+const EXPIRY_TIME = 30 * 24 * 60 * 60 * 1000; // total milliseconds in 30 days
+
 let fileOpenDisposable: Disposable;
 let fileCloseDisposable: Disposable;
 
@@ -17,6 +24,67 @@ let fileCloseDisposable: Disposable;
  */
 const branchTabsKey = (branchName: string) => {
   return `${branchName}_tabs`;
+};
+
+/**
+ * Gets the branch expiries from workspace memory state
+ * @param context the extension context - from the activate method parameters
+ * @returns the current branch expiries
+ */
+const getBranchExpiries = (context: ExtensionContext) => {
+  return (
+    context.workspaceState.get<IBranchMemExpiries>(BRANCH_MEM_EXPIRIES_KEY) ??
+    {}
+  );
+};
+
+/**
+ * Updates the workspace memory state with new branch expiries
+ * @param context the extension context - from the activate method parameters
+ * @param branchExpiries the new branch expiries to set into workspace memory state
+ */
+const updateBranchExpiries = async (
+  context: ExtensionContext,
+  branchExpiries: IBranchMemExpiries
+) => {
+  await context.workspaceState.update(BRANCH_MEM_EXPIRIES_KEY, branchExpiries);
+};
+
+/**
+ * Gets the existing branch expiries and iterates over them to clean up any expired branch tabs
+ * @param context the extension context - from the activate method parameters
+ */
+export const cleanUpExpiredBranchMemories = async (
+  context: ExtensionContext
+) => {
+  const nowTime = new Date().getTime();
+
+  const newExpiries: IBranchMemExpiries = {};
+  const existingExpiries = getBranchExpiries(context);
+  Object.keys(existingExpiries).forEach(async (branchName) => {
+    const branchExpiry = existingExpiries[branchName];
+    if (nowTime > branchExpiry) {
+      // it is now past the expiry time, so we should delete the tab memory stored for this branch
+      await context.workspaceState.update(branchTabsKey(branchName), undefined);
+    } else {
+      newExpiries[branchName] = existingExpiries[branchName];
+    }
+  });
+  await updateBranchExpiries(context, newExpiries);
+};
+
+/**
+ * Updates a branch's expiry data for its workspace memory state
+ * @param context the extension context - from the activate method parameters
+ * @param branchName the branch name to update the expiry for
+ */
+const updateBranchExpiry = async (
+  context: ExtensionContext,
+  branchName: string
+) => {
+  const existingExpiries = getBranchExpiries(context);
+  existingExpiries[branchName] = new Date().getTime() + EXPIRY_TIME;
+  await updateBranchExpiries(context, existingExpiries);
 };
 
 /**
@@ -139,5 +207,7 @@ export const restoreBranchMemTabs = async (
         .openTextDocument(Uri.file(path).with({ scheme: "file" }))
         .then((doc) => window.showTextDocument(doc, { preview: false }));
     });
+
+    await updateBranchExpiry(context, branchName);
   }
 };

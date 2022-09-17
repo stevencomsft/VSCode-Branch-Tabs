@@ -3,6 +3,7 @@
 import { Disposable, ExtensionContext, extensions } from "vscode";
 import { GitExtension, Repository } from "./git";
 import {
+  cleanUpExpiredBranchMemories,
   disposeFileWatchers,
   resetBranchFileWatchers,
   restoreBranchMemTabs,
@@ -21,7 +22,9 @@ export function activate(context: ExtensionContext) {
 
   if (git) {
     git.onDidOpenRepository(
-      (repository: Repository) => {
+      async (repository: Repository) => {
+        await cleanUpExpiredBranchMemories(context);
+
         repository.state.onDidChange(
           async () => {
             const currBranchName = repository.state.HEAD?.name;
