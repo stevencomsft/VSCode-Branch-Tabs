@@ -2,12 +2,15 @@
 // Import the module and reference it with the alias vscode in your code below
 import {
   commands,
+  Disposable,
   ExtensionContext,
   extensions,
   Uri,
   workspace,
 } from "vscode";
 import { GitExtension, Repository } from "./git";
+
+const disposables: Disposable[] = [];
 
 const PREV_BRANCH_NAME_KEY = "branchTabs_prevBranchName";
 
@@ -67,10 +70,12 @@ export function activate(context: ExtensionContext) {
         }
 
         context.workspaceState.update(PREV_BRANCH_NAME_KEY, currBranchName);
-      });
-    });
+      }, disposables);
+    }, disposables);
   }
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  disposables.forEach((d) => d.dispose());
+}
