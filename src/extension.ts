@@ -10,27 +10,16 @@ import {
   workspace,
 } from "vscode";
 import { GitExtension, Repository } from "./git";
-import {
-  didSwitchToNewBranch,
-  getBranchDocsKey,
-  getBranchNames,
-  resetTempDocTracking,
-  restoreBranchDocs,
-  stashPrevBranchDocs,
-  storeBranchName,
-} from "./utility";
 
-interface ISessionState {
-  mainDisposables: Disposable[];
-  tempDisposables: Disposable[];
-  openTextDocPaths: string[];
+const disposables: Disposable[] = [];
+const tempDisposables: Disposable[] = [];
+let openTextDocPaths: string[] = [];
+
+const PREV_BRANCH_NAME_KEY = "branchTabs_prevBranchName";
+
+function getBranchDocsKey(branchName: string) {
+  return `branchTabs_${branchName}_openDocs`;
 }
-
-const sessionState: ISessionState = {
-  mainDisposables: [],
-  tempDisposables: [],
-  openTextDocPaths: [],
-};
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -44,40 +33,80 @@ export function activate(context: ExtensionContext) {
       (repository: Repository) => {
         repository.state.onDidChange(
           async () => {
-            const { prevBranchName, currBranchName } = getBranchNames(
-              context,
-              repository
-            );
+            const prevBranchName =
+              context.workspaceState.get<string>(PREV_BRANCH_NAME_KEY);
+            const currBranchName = repository.state.HEAD?.name;
 
-            if (didSwitchToNewBranch(prevBranchName, currBranchName)) {
-              await stashPrevBranchDocs(
-                context,
-                sessionState.openTextDocPaths,
-                prevBranchName!
+            if (
+              prevBranchName &&
+              currBranchName &&
+              prevBranchName !== currBranchName
+            ) {
+              if (openTextDocPaths.length > 0) {
+                const prevBranchKey = getBranchDocsKey(prevBranchName);
+                await context.workspaceState.update(
+                  prevBranchKey,
+                  openTextDocPaths
+                );
+              }
+
+              openTextDocPaths = [];
+              tempDisposables.forEach((d) => d.dispose());
+              workspace.onDidOpenTextDocument(
+                (doc) => {
+                  if (doc.uri.scheme === "file") {
+                    openTextDocPaths.push(doc.uri.path);
+                  }
+                },
+                null,
+                tempDisposables
               );
-
-              resetTempDocTracking(
-                sessionState.openTextDocPaths,
-                sessionState.tempDisposables
+              workspace.onDidCloseTextDocument(
+                (doc) => {
+                  if (doc.uri.scheme === "file") {
+                    openTextDocPaths = openTextDocPaths.filter(
+                      (s) => s !== doc.uri.path
+                    );
+                  }
+                },
+                null,
+                tempDisposables
               );
+              const currBranchKey = getBranchDocsKey(currBranchName);
+              const stashedDocPaths =
+                context.workspaceState.get<string[]>(currBranchKey) ?? [];
+              if (stashedDocPaths.length > 0) {
+                await commands.executeCommand(
+                  "workbench.action.closeAllEditors"
+                );
 
-              await restoreBranchDocs(context, currBranchName!);
+                stashedDocPaths.forEach(async (path) => {
+                  await workspace
+                    .openTextDocument(Uri.file(path).with({ scheme: "file" }))
+                    .then((doc) =>
+                      window.showTextDocument(doc, { preview: false })
+                    );
+                });
+              }
             }
 
-            await storeBranchName(context, currBranchName!);
+            await context.workspaceState.update(
+              PREV_BRANCH_NAME_KEY,
+              currBranchName
+            );
           },
           null,
-          sessionState.mainDisposables
+          disposables
         );
       },
       null,
-      sessionState.mainDisposables
+      disposables
     );
   }
 }
 
 // this method is called when your extension is deactivated
 export function deactivate() {
-  sessionState.mainDisposables.forEach((d) => d.dispose());
-  sessionState.tempDisposables.forEach((d) => d.dispose());
+  disposables.forEach((d) => d.dispose());
+  tempDisposables.forEach((d) => d.dispose());
 }
