@@ -6,6 +6,7 @@
   "repository": "https://garage-09.visualstudio.com/_git/VS%20Code%20Branch%20Tabs%20Extension",
   "version": "0.0.2",
   "publisher": "stevencoMsft",
+  "icon": "assets/BranchTabsIcon.png",
   "engines": {
     "vscode": "^1.71.0"
   },
