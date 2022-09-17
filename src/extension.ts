@@ -20,9 +20,17 @@ import {
   storeBranchName,
 } from "./utility";
 
-const disposables: Disposable[] = [];
-const tempDisposables: Disposable[] = [];
-let openTextDocPaths: string[] = [];
+interface ISessionState {
+  mainDisposables: Disposable[];
+  tempDisposables: Disposable[];
+  openTextDocPaths: string[];
+}
+
+const sessionState: ISessionState = {
+  mainDisposables: [],
+  tempDisposables: [],
+  openTextDocPaths: [],
+};
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -42,9 +50,16 @@ export function activate(context: ExtensionContext) {
             );
 
             if (didSwitchToNewBranch(prevBranchName, currBranchName)) {
-              await stashPrevBranchDocs(context, openTextDocPaths, prevBranchName!);
+              await stashPrevBranchDocs(
+                context,
+                sessionState.openTextDocPaths,
+                prevBranchName!
+              );
 
-              resetTempDocTracking(openTextDocPaths, tempDisposables);
+              resetTempDocTracking(
+                sessionState.openTextDocPaths,
+                sessionState.tempDisposables
+              );
 
               await restoreBranchDocs(context, currBranchName!);
             }
@@ -52,17 +67,17 @@ export function activate(context: ExtensionContext) {
             await storeBranchName(context, currBranchName!);
           },
           null,
-          disposables
+          sessionState.mainDisposables
         );
       },
       null,
-      disposables
+      sessionState.mainDisposables
     );
   }
 }
 
 // this method is called when your extension is deactivated
 export function deactivate() {
-  disposables.forEach((d) => d.dispose());
-  tempDisposables.forEach((d) => d.dispose());
+  sessionState.mainDisposables.forEach((d) => d.dispose());
+  sessionState.tempDisposables.forEach((d) => d.dispose());
 }
