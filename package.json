@@ -4,7 +4,7 @@
   "description": "Keeps track of tabs across branch sessions",
   "license": "MIT",
   "repository": "https://garage-09.visualstudio.com/_git/VS%20Code%20Branch%20Tabs%20Extension",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "publisher": "stevencoMsft",
   "icon": "assets/BranchTabsIcon.png",
   "engines": {
@@ -24,6 +24,7 @@
     "views": {
       "scm": [
         {
+          "icon": "assets/BranchTabsIcon.svg",
           "id": "branchTabsView",
           "name": "Branch Tabs"
         }

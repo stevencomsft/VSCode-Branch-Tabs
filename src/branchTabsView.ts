@@ -76,9 +76,4 @@ class Dependency extends TreeItem {
     this.description = description;
     this.command = command;
   }
-
-  iconPath = {
-    light: path.join("assets", "BranchTabsIcon.svg"),
-    dark: path.join("assets", "BranchTabsIcon.svg"),
-  };
 }
