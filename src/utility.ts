@@ -12,6 +12,7 @@ interface IBranchMemExpiries {
   [branchName: string]: number;
 }
 
+const AUTO_RESTORE = "AUTO_RESTORE";
 const BRANCH_MEM_EXPIRIES_KEY = "BRANCH_MEM_EXPIRIES";
 const EXPIRY_TIME = 30 * 24 * 60 * 60 * 1000; // total milliseconds in 30 days
 
@@ -244,17 +245,86 @@ export const restoreBranchMemTabs = async (
   context: ExtensionContext,
   branchName: string
 ) => {
-  const currBranchKey = branchTabsKey(branchName);
   const stashedDocPaths = getBranchMemoryPaths(context, branchName);
   if (stashedDocPaths.length > 0) {
-    await commands.executeCommand("workbench.action.closeAllEditors");
+    await (shouldAutoRestore(context)
+      ? Promise.resolve("Yes")
+      : Promise.resolve(
+          window.showInformationMessage(
+            `Would you like to restore ${stashedDocPaths.length} tab${
+              stashedDocPaths.length > 1 ? "s" : ""
+            } stashed away for this branch?`,
+            { modal: true },
+            "Yes",
+            "No"
+          )
+        )
+    ).then(async (answer) => {
+      if (answer === "Yes") {
+        await commands.executeCommand("workbench.action.closeAllEditors");
 
-    stashedDocPaths.forEach(async (p) => {
-      await workspace
-        .openTextDocument(Uri.file(p.path).with({ scheme: "file" }))
-        .then((doc) => window.showTextDocument(doc, { preview: false, viewColumn: p.viewColumn ?? 1 }));
+        stashedDocPaths.forEach(async (p) => {
+          await workspace
+            .openTextDocument(Uri.file(p.path).with({ scheme: "file" }))
+            .then((doc) =>
+              window.showTextDocument(doc, {
+                preview: false,
+                viewColumn: p.viewColumn ?? 1,
+              })
+            );
+        });
+
+        if (!shouldAutoRestore(context)) {
+          promptAutoRestore(context);
+        } else {
+          alertSuccess(context);
+        }
+      }
     });
 
     await updateBranchExpiry(context, branchName);
   }
+};
+
+/**
+ * Checks to see if the user has agreed to auto restore in the workspace memory state
+ * @param context the extension context - from the activate method parameters
+ * @returns true or false if should auto restore
+ */
+const shouldAutoRestore = (context: ExtensionContext) => {
+  return context.workspaceState.get<boolean>(AUTO_RESTORE) ?? false;
+};
+
+/**
+ * Sets the auto restore value in the workspace memory state
+ * @param context the extension context - from the activate method parameters
+ */
+const setAutoRestore = async (context: ExtensionContext) => {
+  await context.workspaceState.update(AUTO_RESTORE, true);
+};
+
+/**
+ * Prompts the user to allow auto restoring of tabs
+ * @param context the extension context - from the activate method parameters
+ */
+const promptAutoRestore = (context: ExtensionContext) => {
+  window
+    .showInformationMessage(
+      "Branch tabs restored. Would you like to automatically restore branch tabs in the future?",
+      "Yes",
+      "No"
+    )
+    .then(async (answer) => {
+      if (answer === "Yes") {
+        await setAutoRestore(context);
+      }
+    });
+};
+
+/**
+ * Alerts the user of branch tab restoration success
+ * @param context the extension context - from the activate method parameters
+ */
+const alertSuccess = (context: ExtensionContext) => {
+  window.showInformationMessage("Branch tabs restored.");
 };
