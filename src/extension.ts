@@ -25,18 +25,19 @@ let prevBranchName: string;
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: ExtensionContext) {
-  registerCommandHandlers(context);
+  const branchTabView = registerScmView(context);
+  registerCommandHandlers(context, () => branchTabView.refresh());
 
   const gitExtension =
     extensions.getExtension<GitExtension>("vscode.git")?.exports;
   const git = gitExtension?.getAPI(1);
 
   if (git) {
-    registerScmView(context);
-
     git.onDidOpenRepository(
       async (repository: Repository) => {
-        await cleanUpExpiredBranchMemories(context);
+        await cleanUpExpiredBranchMemories(context, () =>
+          branchTabView.refresh()
+        );
 
         repository.state.onDidChange(
           async () => {
@@ -48,7 +49,9 @@ export function activate(context: ExtensionContext) {
                 await restoreBranchMemTabs(context, currBranchName);
               }
 
-              resetBranchFileWatchers(context, currBranchName);
+              resetBranchFileWatchers(context, currBranchName, () =>
+                branchTabView.refresh()
+              );
               prevBranchName = currBranchName;
             }
           },
@@ -63,23 +66,33 @@ export function activate(context: ExtensionContext) {
 }
 
 const registerScmView = (context: ExtensionContext) => {
+  const branchTabView = new BranchTabsViewProvider(context);
+
   const scmViewDisposable = window.registerTreeDataProvider(
     "branchTabsView",
-    new BranchTabsViewProvider(context)
+    branchTabView
   );
   gitWatchers.push(scmViewDisposable);
+
+  return branchTabView;
 };
 
 /** Registers the command handlers and callback functions */
-const registerCommandHandlers = (context: ExtensionContext) => {
+const registerCommandHandlers = (
+  context: ExtensionContext,
+  refreshTabView: () => void
+) => {
   const clearAllCommand = "branchTabs.clearAll";
   context.subscriptions.push(
     commands.registerCommand(
       clearAllCommand,
       async () =>
-        await clearAllBranchMemories(context).then(() =>
-          window.showInformationMessage("Branch Tabs: Cleared All Saved Tabs")
-        )
+        await clearAllBranchMemories(context).then(async () => {
+          refreshTabView();
+          await window.showInformationMessage(
+            "Branch Tabs: Cleared All Saved Tabs"
+          );
+        })
     )
   );
 
@@ -88,9 +101,12 @@ const registerCommandHandlers = (context: ExtensionContext) => {
     commands.registerCommand(
       disableAutoRestoreCommand,
       async () =>
-        await setAutoRestore(context, false).then(() =>
-          window.showInformationMessage("Branch Tabs: Disabled Auto Restore")
-        )
+        await setAutoRestore(context, false).then(async () => {
+          refreshTabView();
+          await window.showInformationMessage(
+            "Branch Tabs: Disabled Auto Restore"
+          );
+        })
     )
   );
 
@@ -99,9 +115,12 @@ const registerCommandHandlers = (context: ExtensionContext) => {
     commands.registerCommand(
       enableAutoRestoreCommand,
       async () =>
-        await setAutoRestore(context, true).then(() =>
-          window.showInformationMessage("Branch Tabs: Enabled Auto Restore")
-        )
+        await setAutoRestore(context, true).then(async () => {
+          refreshTabView();
+          await window.showInformationMessage(
+            "Branch Tabs: Enabled Auto Restore"
+          );
+        })
     )
   );
 };

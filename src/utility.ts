@@ -70,7 +70,8 @@ export const clearAllBranchMemories = async (context: ExtensionContext) => {
  * @param context the extension context - from the activate method parameters
  */
 export const cleanUpExpiredBranchMemories = async (
-  context: ExtensionContext
+  context: ExtensionContext,
+  refreshTabView: () => void
 ) => {
   const nowTime = new Date().getTime();
 
@@ -85,7 +86,9 @@ export const cleanUpExpiredBranchMemories = async (
       newExpiries[branchName] = existingExpiries[branchName];
     }
   });
-  await updateBranchExpiries(context, newExpiries);
+  await updateBranchExpiries(context, newExpiries).then(() => {
+    refreshTabView();
+  });
 };
 
 /**
@@ -218,18 +221,23 @@ export const disposeFileWatchers = () => {
  */
 export const resetBranchFileWatchers = (
   context: ExtensionContext,
-  branchName: string
+  branchName: string,
+  refreshTabView: () => void
 ) => {
   disposeFileWatchers();
 
   fileOpenDisposable = workspace.onDidOpenTextDocument((doc) => {
     if (doc.uri.scheme === "file") {
-      addFilePathToBranchMemory(context, branchName, doc.uri.path);
+      addFilePathToBranchMemory(context, branchName, doc.uri.path).then(() => {
+        refreshTabView();
+      });
     }
   });
   fileCloseDisposable = workspace.onDidCloseTextDocument((doc) => {
     if (doc.uri.scheme === "file") {
-      removeFileFromBranchMemory(context, branchName, doc.uri.path);
+      removeFileFromBranchMemory(context, branchName, doc.uri.path).then(() => {
+        refreshTabView();
+      });
     }
   });
   visibleEditorChangeDisposable = window.onDidChangeVisibleTextEditors(

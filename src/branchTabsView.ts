@@ -2,6 +2,8 @@ import path = require("path");
 import {
   Command,
   commands,
+  Event,
+  EventEmitter,
   ExtensionContext,
   TreeDataProvider,
   TreeItem,
@@ -12,6 +14,16 @@ import {
 import { getBranchExpiries, getBranchMemoryPaths } from "./utility";
 
 export class BranchTabsViewProvider implements TreeDataProvider<Dependency> {
+  private _onDidChangeTreeData: EventEmitter<
+    Dependency | undefined | null | void
+  > = new EventEmitter<Dependency | undefined | null | void>();
+  readonly onDidChangeTreeData: Event<Dependency | undefined | null | void> =
+    this._onDidChangeTreeData.event;
+
+  refresh(): void {
+    this._onDidChangeTreeData.fire();
+  }
+
   constructor(private context: ExtensionContext) {}
 
   getTreeItem(element: Dependency): TreeItem {
