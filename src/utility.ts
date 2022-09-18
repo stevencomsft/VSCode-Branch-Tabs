@@ -5,6 +5,7 @@ import {
   Uri,
   window,
   Disposable,
+  TextDocument,
 } from "vscode";
 
 interface IBranchMemExpiries {
@@ -16,6 +17,7 @@ const EXPIRY_TIME = 30 * 24 * 60 * 60 * 1000; // total milliseconds in 30 days
 
 let fileOpenDisposable: Disposable;
 let fileCloseDisposable: Disposable;
+let visibleEditorChangeDisposable: Disposable;
 
 /**
  * Returns the key used in the workspace memory state for storing branch-specific tabs
@@ -96,20 +98,24 @@ const updateBranchExpiry = async (
 const getBranchMemoryPaths = (
   context: ExtensionContext,
   branchName: string
-) => {
-  return context.workspaceState.get<string[]>(branchTabsKey(branchName)) ?? [];
+): { path: string; viewColumn: number }[] => {
+  const paths =
+    context.workspaceState.get<{ path: string; viewColumn: number }[]>(
+      branchTabsKey(branchName)
+    ) ?? [];
+  return paths;
 };
 
 /**
  * Stores/updated paths in the workspace memory state for a specific branch
  * @param context the extension context - from the activate method parameters
  * @param branchName the branch name to store paths for
- * @param branchMemoryPaths the string array of paths to save
+ * @param branchMemoryPaths the array of paths to save
  */
 const storeBranchMemoryPaths = async (
   context: ExtensionContext,
   branchName: string,
-  branchMemoryPaths: string[]
+  branchMemoryPaths: { path: string; viewColumn: number }[]
 ) => {
   await context.workspaceState.update(
     branchTabsKey(branchName),
@@ -121,16 +127,42 @@ const storeBranchMemoryPaths = async (
  * Adds a single file path to a branch's workspace memory state
  * @param context the extension context - from the activate method parameters
  * @param branchName the branch name to add the file path to
- * @param filePath the path to the file being added
+ * @param path the path to the file being added
  */
 const addFilePathToBranchMemory = async (
   context: ExtensionContext,
   branchName: string,
-  filePath: string
+  path: string
 ) => {
   const branchMemoryPaths = getBranchMemoryPaths(context, branchName);
-  if (!branchMemoryPaths.includes(filePath)) {
-    branchMemoryPaths.push(filePath);
+  if (!branchMemoryPaths.some((p) => p.path === path)) {
+    branchMemoryPaths.push({ path, viewColumn: 1 });
+    await storeBranchMemoryPaths(context, branchName, branchMemoryPaths);
+  }
+};
+
+/**
+ * Updates the view column for a file path in the workstate memory state for a specific branch
+ * @param context the extension context - from the activate method parameters
+ * @param branchName the branch name to add the file path to
+ * @param path the path to the file being added
+ * @param viewColumn the view column of the file being tracked
+ */
+const updateFileViewColumn = async (
+  context: ExtensionContext,
+  branchName: string,
+  path: string,
+  viewColumn: number
+) => {
+  const branchMemoryPaths = getBranchMemoryPaths(context, branchName);
+  const entryIndex = branchMemoryPaths.findIndex(
+    (p) => p.path === path && p.viewColumn !== viewColumn
+  );
+  if (entryIndex !== -1) {
+    branchMemoryPaths.splice(entryIndex, 1, {
+      path,
+      viewColumn,
+    });
     await storeBranchMemoryPaths(context, branchName, branchMemoryPaths);
   }
 };
@@ -144,11 +176,11 @@ const addFilePathToBranchMemory = async (
 const removeFileFromBranchMemory = async (
   context: ExtensionContext,
   branchName: string,
-  filePath: string
+  path: string
 ) => {
   let branchMemoryPaths = getBranchMemoryPaths(context, branchName);
-  if (branchMemoryPaths.includes(filePath)) {
-    branchMemoryPaths = branchMemoryPaths.filter((path) => path !== filePath);
+  if (branchMemoryPaths.some((p) => p.path === path)) {
+    branchMemoryPaths = branchMemoryPaths.filter((p) => p.path !== path);
     await storeBranchMemoryPaths(context, branchName, branchMemoryPaths);
   }
 };
@@ -160,6 +192,9 @@ export const disposeFileWatchers = () => {
   }
   if (fileCloseDisposable) {
     fileCloseDisposable.dispose();
+  }
+  if (visibleEditorChangeDisposable) {
+    visibleEditorChangeDisposable.dispose();
   }
 };
 
@@ -184,6 +219,20 @@ export const resetBranchFileWatchers = (
       removeFileFromBranchMemory(context, branchName, doc.uri.path);
     }
   });
+  visibleEditorChangeDisposable = window.onDidChangeVisibleTextEditors(
+    (changes) => {
+      changes.forEach((change) => {
+        if (change.document.uri.scheme === "file") {
+          updateFileViewColumn(
+            context,
+            branchName,
+            change.document.uri.path,
+            change.viewColumn?.valueOf() ?? 1
+          );
+        }
+      });
+    }
+  );
 };
 
 /**
@@ -196,15 +245,14 @@ export const restoreBranchMemTabs = async (
   branchName: string
 ) => {
   const currBranchKey = branchTabsKey(branchName);
-  const stashedDocPaths =
-    context.workspaceState.get<string[]>(currBranchKey) ?? [];
+  const stashedDocPaths = getBranchMemoryPaths(context, branchName);
   if (stashedDocPaths.length > 0) {
     await commands.executeCommand("workbench.action.closeAllEditors");
 
-    stashedDocPaths.forEach(async (path) => {
+    stashedDocPaths.forEach(async (p) => {
       await workspace
-        .openTextDocument(Uri.file(path).with({ scheme: "file" }))
-        .then((doc) => window.showTextDocument(doc, { preview: false }));
+        .openTextDocument(Uri.file(p.path).with({ scheme: "file" }))
+        .then((doc) => window.showTextDocument(doc, { preview: false, viewColumn: p.viewColumn ?? 1 }));
     });
 
     await updateBranchExpiry(context, branchName);
