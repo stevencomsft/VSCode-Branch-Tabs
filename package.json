@@ -4,7 +4,7 @@
   "description": "Keeps track of tabs across branch sessions",
   "license": "MIT",
   "repository": "https://garage-09.visualstudio.com/_git/VS%20Code%20Branch%20Tabs%20Extension",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "publisher": "stevencoMsft",
   "icon": "assets/BranchTabsIcon.png",
   "engines": {
@@ -21,6 +21,14 @@
     "vscode.git-base"
   ],
   "contributes": {
+    "views": {
+      "scm": [
+        {
+          "id": "branchTabsView",
+          "name": "Branch Tabs"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "branchTabs.clearAll",
@@ -37,7 +45,9 @@
     ]
   },
   "main": "./dist/extension.js",
-  "extensionKind": ["workspace"],
+  "extensionKind": [
+    "workspace"
+  ],
   "scripts": {
     "vscode:prepublish": "yarn run package",
     "compile": "webpack",

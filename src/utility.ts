@@ -33,7 +33,7 @@ const branchTabsKey = (branchName: string) => {
  * @param context the extension context - from the activate method parameters
  * @returns the current branch expiries
  */
-const getBranchExpiries = (context: ExtensionContext) => {
+export const getBranchExpiries = (context: ExtensionContext) => {
   return (
     context.workspaceState.get<IBranchMemExpiries>(BRANCH_MEM_EXPIRIES_KEY) ??
     {}
@@ -56,9 +56,7 @@ const updateBranchExpiries = async (
  * Clears all stored tab memories and other keys from the workspace memory state
  * @param context the extension context - from the activate method parameters
  */
-export const clearAllBranchMemories = async (
-  context: ExtensionContext
-) => {
+export const clearAllBranchMemories = async (context: ExtensionContext) => {
   const existingExpiries = getBranchExpiries(context);
   Object.keys(existingExpiries).forEach(async (branchName) => {
     await context.workspaceState.update(branchTabsKey(branchName), undefined);
@@ -110,7 +108,7 @@ const updateBranchExpiry = async (
  * @param branchName the branch name to retrieve paths for
  * @returns a string array of tab paths
  */
-const getBranchMemoryPaths = (
+export const getBranchMemoryPaths = (
   context: ExtensionContext,
   branchName: string
 ): { path: string; viewColumn: number }[] => {
@@ -313,7 +311,10 @@ const shouldAutoRestore = (context: ExtensionContext) => {
  * Sets the auto restore value in the workspace memory state
  * @param context the extension context - from the activate method parameters
  */
-export const setAutoRestore = async (context: ExtensionContext, enabled: boolean) => {
+export const setAutoRestore = async (
+  context: ExtensionContext,
+  enabled: boolean
+) => {
   await context.workspaceState.update(AUTO_RESTORE, enabled);
 };
 

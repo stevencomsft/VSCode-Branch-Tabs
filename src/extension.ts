@@ -7,6 +7,7 @@ import {
   extensions,
   window,
 } from "vscode";
+import { BranchTabsViewProvider } from "./branchTabsView";
 import { GitExtension, Repository } from "./git";
 import {
   cleanUpExpiredBranchMemories,
@@ -21,6 +22,55 @@ const gitWatchers: Disposable[] = [];
 
 let prevBranchName: string;
 
+// this method is called when your extension is activated
+// your extension is activated the very first time the command is executed
+export function activate(context: ExtensionContext) {
+  registerCommandHandlers(context);
+
+  const gitExtension =
+    extensions.getExtension<GitExtension>("vscode.git")?.exports;
+  const git = gitExtension?.getAPI(1);
+
+  if (git) {
+    registerScmView(context);
+
+    git.onDidOpenRepository(
+      async (repository: Repository) => {
+        await cleanUpExpiredBranchMemories(context);
+
+        repository.state.onDidChange(
+          async () => {
+            const currBranchName = repository.state.HEAD?.name;
+
+            if (currBranchName) {
+              if (prevBranchName && prevBranchName !== currBranchName) {
+                disposeFileWatchers();
+                await restoreBranchMemTabs(context, currBranchName);
+              }
+
+              resetBranchFileWatchers(context, currBranchName);
+              prevBranchName = currBranchName;
+            }
+          },
+          null,
+          gitWatchers
+        );
+      },
+      null,
+      gitWatchers
+    );
+  }
+}
+
+const registerScmView = (context: ExtensionContext) => {
+  const scmViewDisposable = window.registerTreeDataProvider(
+    "branchTabsView",
+    new BranchTabsViewProvider(context)
+  );
+  gitWatchers.push(scmViewDisposable);
+};
+
+/** Registers the command handlers and callback functions */
 const registerCommandHandlers = (context: ExtensionContext) => {
   const clearAllCommand = "branchTabs.clearAll";
   context.subscriptions.push(
@@ -55,44 +105,6 @@ const registerCommandHandlers = (context: ExtensionContext) => {
     )
   );
 };
-
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-export function activate(context: ExtensionContext) {
-  registerCommandHandlers(context);
-
-  const gitExtension =
-    extensions.getExtension<GitExtension>("vscode.git")?.exports;
-  const git = gitExtension?.getAPI(1);
-
-  if (git) {
-    git.onDidOpenRepository(
-      async (repository: Repository) => {
-        await cleanUpExpiredBranchMemories(context);
-
-        repository.state.onDidChange(
-          async () => {
-            const currBranchName = repository.state.HEAD?.name;
-
-            if (currBranchName) {
-              if (prevBranchName && prevBranchName !== currBranchName) {
-                disposeFileWatchers();
-                await restoreBranchMemTabs(context, currBranchName);
-              }
-
-              resetBranchFileWatchers(context, currBranchName);
-              prevBranchName = currBranchName;
-            }
-          },
-          null,
-          gitWatchers
-        );
-      },
-      null,
-      gitWatchers
-    );
-  }
-}
 
 // this method is called when your extension is deactivated
 export function deactivate(context: ExtensionContext) {
