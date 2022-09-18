@@ -4,7 +4,7 @@
   "description": "Keeps track of tabs across branch sessions",
   "license": "MIT",
   "repository": "https://garage-09.visualstudio.com/_git/VS%20Code%20Branch%20Tabs%20Extension",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "stevencoMsft",
   "icon": "assets/BranchTabsIcon.png",
   "engines": {
@@ -20,6 +20,22 @@
     "vscode.git",
     "vscode.git-base"
   ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "branchTabs.clearAll",
+        "title": "Branch Tabs - Clear All Saved Tabs"
+      },
+      {
+        "command": "branchTabs.disableAutoRestore",
+        "title": "Branch Tabs - Disable Auto Restore"
+      },
+      {
+        "command": "branchTabs.enableAutoRestore",
+        "title": "Branch Tabs - Enable Auto Restore"
+      }
+    ]
+  },
   "main": "./dist/extension.js",
   "extensionKind": ["workspace"],
   "scripts": {

@@ -5,7 +5,6 @@ import {
   Uri,
   window,
   Disposable,
-  TextDocument,
 } from "vscode";
 
 interface IBranchMemExpiries {
@@ -48,9 +47,24 @@ const getBranchExpiries = (context: ExtensionContext) => {
  */
 const updateBranchExpiries = async (
   context: ExtensionContext,
-  branchExpiries: IBranchMemExpiries
+  branchExpiries: IBranchMemExpiries | undefined
 ) => {
   await context.workspaceState.update(BRANCH_MEM_EXPIRIES_KEY, branchExpiries);
+};
+
+/**
+ * Clears all stored tab memories and other keys from the workspace memory state
+ * @param context the extension context - from the activate method parameters
+ */
+export const clearAllBranchMemories = async (
+  context: ExtensionContext
+) => {
+  const existingExpiries = getBranchExpiries(context);
+  Object.keys(existingExpiries).forEach(async (branchName) => {
+    await context.workspaceState.update(branchTabsKey(branchName), undefined);
+  });
+  await updateBranchExpiries(context, undefined);
+  await setAutoRestore(context, false);
 };
 
 /**
@@ -299,8 +313,8 @@ const shouldAutoRestore = (context: ExtensionContext) => {
  * Sets the auto restore value in the workspace memory state
  * @param context the extension context - from the activate method parameters
  */
-const setAutoRestore = async (context: ExtensionContext) => {
-  await context.workspaceState.update(AUTO_RESTORE, true);
+export const setAutoRestore = async (context: ExtensionContext, enabled: boolean) => {
+  await context.workspaceState.update(AUTO_RESTORE, enabled);
 };
 
 /**
@@ -316,7 +330,7 @@ const promptAutoRestore = (context: ExtensionContext) => {
     )
     .then(async (answer) => {
       if (answer === "Yes") {
-        await setAutoRestore(context);
+        await setAutoRestore(context, true);
       }
     });
 };
