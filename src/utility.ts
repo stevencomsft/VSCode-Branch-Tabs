@@ -199,7 +199,6 @@ export const restoreBranchMemTabs = async (
   const stashedDocPaths =
     context.workspaceState.get<string[]>(currBranchKey) ?? [];
   if (stashedDocPaths.length > 0) {
-    disposeFileWatchers();
     await commands.executeCommand("workbench.action.closeAllEditors");
 
     stashedDocPaths.forEach(async (path) => {

@@ -31,6 +31,7 @@ export function activate(context: ExtensionContext) {
 
             if (currBranchName) {
               if (prevBranchName && prevBranchName !== currBranchName) {
+                disposeFileWatchers();
                 await restoreBranchMemTabs(context, currBranchName);
               }
 
