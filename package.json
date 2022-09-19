@@ -4,7 +4,7 @@
   "description": "Keeps track of tabs across branch sessions",
   "license": "MIT",
   "repository": "https://garage-09.visualstudio.com/_git/VS%20Code%20Branch%20Tabs%20Extension",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "publisher": "stevencoMsft",
   "icon": "assets/BranchTabsIcon.png",
   "engines": {
@@ -30,7 +30,41 @@
         }
       ]
     },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "branchTabs.deleteEntry",
+          "when": "view == branchTabsView && viewItem == branchTabEntry",
+          "group": "inline"
+        },
+        {
+          "command": "branchTabs.deleteBranch",
+          "when": "view == branchTabsView && viewItem == branch",
+          "group": "inline"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "branchTabs.deleteEntry",
+          "when": "false"
+        },
+        {
+          "command": "branchTabs.deleteBranch",
+          "when": "false"
+        }
+      ]
+    },
     "commands": [
+      {
+        "command": "branchTabs.deleteEntry",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "branchTabs.deleteBranch",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
       {
         "command": "branchTabs.clearAll",
         "title": "Branch Tabs - Clear All Saved Tabs"

@@ -53,6 +53,28 @@ const updateBranchExpiries = async (
 };
 
 /**
+ * Deletes stored tab memories and related keys from the workspace memory state for a specific branch
+ * @param context the extension context - from the activate method parameters
+ */
+export const deleteBranchMemory = async (
+  context: ExtensionContext,
+  branchNameToDelete: string
+) => {
+  const newExpiries: IBranchMemExpiries = {};
+  const existingExpiries = getBranchExpiries(context);
+  Object.keys(existingExpiries).forEach(async (branchName) => {
+    if (branchName !== branchNameToDelete) {
+      newExpiries[branchName] = existingExpiries[branchName];
+    }
+  });
+  await updateBranchExpiries(context, newExpiries);
+  await context.workspaceState.update(
+    branchTabsKey(branchNameToDelete),
+    undefined
+  );
+};
+
+/**
  * Clears all stored tab memories and other keys from the workspace memory state
  * @param context the extension context - from the activate method parameters
  */
@@ -189,7 +211,7 @@ const updateFileViewColumn = async (
  * @param branchName the branch name to remove the file path from
  * @param filePath the path to the file being removed
  */
-const removeFileFromBranchMemory = async (
+export const removeFileFromBranchMemory = async (
   context: ExtensionContext,
   branchName: string,
   path: string
@@ -226,25 +248,23 @@ export const resetBranchFileWatchers = (
 ) => {
   disposeFileWatchers();
 
-  fileOpenDisposable = workspace.onDidOpenTextDocument((doc) => {
+  fileOpenDisposable = workspace.onDidOpenTextDocument(async (doc) => {
     if (doc.uri.scheme === "file") {
-      addFilePathToBranchMemory(context, branchName, doc.uri.path).then(() => {
-        refreshTabView();
-      });
+      await addFilePathToBranchMemory(context, branchName, doc.uri.path);
+      refreshTabView();
     }
   });
-  fileCloseDisposable = workspace.onDidCloseTextDocument((doc) => {
+  fileCloseDisposable = workspace.onDidCloseTextDocument(async (doc) => {
     if (doc.uri.scheme === "file") {
-      removeFileFromBranchMemory(context, branchName, doc.uri.path).then(() => {
-        refreshTabView();
-      });
+      await removeFileFromBranchMemory(context, branchName, doc.uri.path);
+      refreshTabView();
     }
   });
   visibleEditorChangeDisposable = window.onDidChangeVisibleTextEditors(
-    (changes) => {
-      changes.forEach((change) => {
+    async (changes) => {
+      changes.forEach(async (change) => {
         if (change.document.uri.scheme === "file") {
-          updateFileViewColumn(
+          await updateFileViewColumn(
             context,
             branchName,
             change.document.uri.path,

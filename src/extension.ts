@@ -7,12 +7,14 @@ import {
   extensions,
   window,
 } from "vscode";
-import { BranchTabsViewProvider } from "./branchTabsView";
+import { BranchTabEntry, BranchTabsViewProvider } from "./branchTabsView";
 import { GitExtension, Repository } from "./git";
 import {
   cleanUpExpiredBranchMemories,
   clearAllBranchMemories,
+  deleteBranchMemory,
   disposeFileWatchers,
+  removeFileFromBranchMemory,
   resetBranchFileWatchers,
   restoreBranchMemTabs,
   setAutoRestore,
@@ -35,9 +37,7 @@ export function activate(context: ExtensionContext) {
   if (git) {
     git.onDidOpenRepository(
       async (repository: Repository) => {
-        await cleanUpExpiredBranchMemories(context, () =>
-          branchTabView.refresh()
-        );
+        await cleanUpExpiredBranchMemories(context, () => branchTabView.refresh());
 
         repository.state.onDidChange(
           async () => {
@@ -49,8 +49,10 @@ export function activate(context: ExtensionContext) {
                 await restoreBranchMemTabs(context, currBranchName);
               }
 
-              resetBranchFileWatchers(context, currBranchName, () =>
-                branchTabView.refresh()
+              resetBranchFileWatchers(
+                context,
+                currBranchName,
+                () => branchTabView.refresh()
               );
               prevBranchName = currBranchName;
             }
@@ -84,43 +86,60 @@ const registerCommandHandlers = (
 ) => {
   const clearAllCommand = "branchTabs.clearAll";
   context.subscriptions.push(
-    commands.registerCommand(
-      clearAllCommand,
-      async () =>
-        await clearAllBranchMemories(context).then(async () => {
-          refreshTabView();
-          await window.showInformationMessage(
-            "Branch Tabs: Cleared All Saved Tabs"
-          );
-        })
-    )
+    commands.registerCommand(clearAllCommand, async () => {
+      await clearAllBranchMemories(context);
+      refreshTabView();
+      await window.showInformationMessage(
+        "Branch Tabs: Cleared All Saved Tabs"
+      );
+    })
   );
 
   const disableAutoRestoreCommand = "branchTabs.disableAutoRestore";
   context.subscriptions.push(
-    commands.registerCommand(
-      disableAutoRestoreCommand,
-      async () =>
-        await setAutoRestore(context, false).then(async () => {
-          refreshTabView();
-          await window.showInformationMessage(
-            "Branch Tabs: Disabled Auto Restore"
-          );
-        })
-    )
+    commands.registerCommand(disableAutoRestoreCommand, async () => {
+      await setAutoRestore(context, false);
+      refreshTabView();
+      await window.showInformationMessage("Branch Tabs: Disabled Auto Restore");
+    })
   );
 
   const enableAutoRestoreCommand = "branchTabs.enableAutoRestore";
   context.subscriptions.push(
+    commands.registerCommand(enableAutoRestoreCommand, async () => {
+      await setAutoRestore(context, true);
+      refreshTabView();
+      await window.showInformationMessage("Branch Tabs: Enabled Auto Restore");
+    })
+  );
+
+  const deleteEntryCommand = "branchTabs.deleteEntry";
+  context.subscriptions.push(
     commands.registerCommand(
-      enableAutoRestoreCommand,
-      async () =>
-        await setAutoRestore(context, true).then(async () => {
-          refreshTabView();
-          await window.showInformationMessage(
-            "Branch Tabs: Enabled Auto Restore"
-          );
-        })
+      deleteEntryCommand,
+      async (entry: BranchTabEntry) => {
+        await removeFileFromBranchMemory(
+          context,
+          entry.branchName,
+          entry.path!
+        );
+        refreshTabView();
+        await window.showInformationMessage(
+          "Branch Tabs: Removed Tab from Branch State"
+        );
+      }
+    )
+  );
+
+  const deleteBranchCommand = "branchTabs.deleteBranch";
+  context.subscriptions.push(
+    commands.registerCommand(
+      deleteBranchCommand,
+      async (entry: BranchTabEntry) => {
+        await deleteBranchMemory(context, entry.branchName);
+        refreshTabView();
+        await window.showInformationMessage("Branch Tabs: Removed Branch Tabs");
+      }
     )
   );
 };
