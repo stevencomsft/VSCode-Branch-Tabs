@@ -230,7 +230,7 @@ export const restoreBranchMemTabs = async (
 ) => {
   const stashedDocPaths = getBranchMemoryPaths(context, branchName);
   if (stashedDocPaths.length > 0) {
-    await (shouldAutoRestore(context)
+    const shouldRestore = await (shouldAutoRestore(context)
       ? Promise.resolve("Yes")
       : Promise.resolve(
           window.showInformationMessage(
@@ -241,33 +241,32 @@ export const restoreBranchMemTabs = async (
             "Yes",
             "No"
           )
-        )
-    ).then(async (answer) => {
-      if (answer === "Yes") {
-        await commands.executeCommand("workbench.action.closeAllEditors");
+        ));
 
-        stashedDocPaths.forEach(async (p) => {
-          try {
-          await workspace
-            .openTextDocument(Uri.file(p.path).with({ scheme: "file" }))
-            .then((doc) =>
-              window.showTextDocument(doc, {
-                preview: false,
-                viewColumn: p.viewColumn ?? 1,
-              })
-            );
-          } catch (e) {
-            console.log('Branch Tabs - error restoring tab: ', e);
-          }
-        });
+    if (shouldRestore === "Yes") {
+      await commands.executeCommand("workbench.action.closeAllEditors");
 
-        if (!shouldAutoRestore(context)) {
-          promptAutoRestore(context);
-        } else {
-          alertSuccess(context);
+      for (let i = 0; i < stashedDocPaths.length; i++) {
+        try {
+          const stashedPath = stashedDocPaths[i];
+          const openedDoc = await workspace.openTextDocument(
+            Uri.file(stashedPath.path)
+          );
+          await window.showTextDocument(openedDoc, {
+            preview: false,
+            viewColumn: stashedPath.viewColumn ?? 1,
+          });
+        } catch (e) {
+          console.log("Branch Tabs - error restoring tab: ", e);
         }
       }
-    });
+
+      if (!shouldAutoRestore(context)) {
+        promptAutoRestore(context);
+      } else {
+        alertSuccess(context);
+      }
+    }
 
     await updateBranchExpiry(context, branchName);
   }
