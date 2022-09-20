@@ -13,9 +13,9 @@ import {
   cleanUpExpiredBranchMemories,
   clearAllBranchMemories,
   deleteBranchMemory,
-  disposeFileWatchers,
+  disposeTabWatcher,
   removeFileFromBranchMemory,
-  resetBranchFileWatchers,
+  resetBranchTabWatcher,
   restoreBranchMemTabs,
   setAutoRestore,
 } from "./utility";
@@ -45,11 +45,11 @@ export function activate(context: ExtensionContext) {
 
             if (currBranchName) {
               if (prevBranchName && prevBranchName !== currBranchName) {
-                disposeFileWatchers();
+                disposeTabWatcher();
                 await restoreBranchMemTabs(context, currBranchName);
               }
 
-              resetBranchFileWatchers(
+              resetBranchTabWatcher(
                 context,
                 currBranchName,
                 () => branchTabView.refresh()
@@ -146,7 +146,7 @@ const registerCommandHandlers = (
 
 // this method is called when your extension is deactivated
 export function deactivate(context: ExtensionContext) {
-  disposeFileWatchers();
+  disposeTabWatcher();
   gitWatchers.forEach((d) => d.dispose());
   context.subscriptions.forEach((s) => s.dispose());
 }
