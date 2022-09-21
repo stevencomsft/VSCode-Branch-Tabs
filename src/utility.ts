@@ -161,6 +161,7 @@ const storeBranchMemoryPaths = async (
     branchTabsKey(branchName),
     branchMemoryPaths
   );
+  await updateBranchExpiry(context, branchName);
 };
 
 /**
@@ -246,29 +247,52 @@ export const restoreBranchMemTabs = async (
     if (shouldRestore === "Yes") {
       await commands.executeCommand("workbench.action.closeAllEditors");
 
-      for (let i = 0; i < stashedDocPaths.length; i++) {
-        try {
-          const stashedPath = stashedDocPaths[i];
-          const openedDoc = await workspace.openTextDocument(
-            Uri.file(stashedPath.path)
-          );
-          await window.showTextDocument(openedDoc, {
-            preview: false,
-            viewColumn: stashedPath.viewColumn ?? 1,
-          });
-        } catch (e) {
+      await new Promise(async (resolve) => {
+        let restoredPaths: string[] = [];
+
+        const handleTabRestored = (path: string) => {
+          if (!restoredPaths.includes(path)) {
+            restoredPaths.push(path);
+          }
+
+          if (restoredPaths.length === stashedDocPaths.length) {
+            resolve(true);
+          }
+        };
+
+        const handleTabFailedToRestore = (e: any, path: string) => {
           console.log("Branch Tabs - error restoring tab: ", e);
-        }
-      }
+          handleTabRestored(path);
+        };
+
+        stashedDocPaths.forEach(async (stashedPath) => {
+          try {
+            Promise.resolve(
+              workspace.openTextDocument(Uri.file(stashedPath.path))
+            )
+              .then((openedDoc) => {
+                Promise.resolve(
+                  window.showTextDocument(openedDoc, {
+                    preview: false,
+                    viewColumn: stashedPath.viewColumn ?? 1,
+                  })
+                )
+                  .then(() => handleTabRestored(stashedPath.path))
+                  .catch((e) => handleTabFailedToRestore(e, stashedPath.path));
+              })
+              .catch((e) => handleTabFailedToRestore(e, stashedPath.path));
+          } catch (e) {
+            handleTabFailedToRestore(e, stashedPath.path);
+          }
+        });
+      });
 
       if (!shouldAutoRestore(context)) {
         promptAutoRestore(context);
       } else {
-        alertSuccess(context);
+        alertSuccess();
       }
     }
-
-    await updateBranchExpiry(context, branchName);
   }
 };
 
@@ -314,6 +338,6 @@ const promptAutoRestore = (context: ExtensionContext) => {
  * Alerts the user of branch tab restoration success
  * @param context the extension context - from the activate method parameters
  */
-const alertSuccess = (context: ExtensionContext) => {
+const alertSuccess = () => {
   window.showInformationMessage("Branch tabs restored.");
 };
