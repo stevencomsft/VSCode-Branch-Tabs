@@ -247,45 +247,24 @@ export const restoreBranchMemTabs = async (
     if (shouldRestore === "Yes") {
       await commands.executeCommand("workbench.action.closeAllEditors");
 
-      await new Promise(async (resolve) => {
-        let restoredPaths: string[] = [];
-
-        const handleTabRestored = (path: string) => {
-          if (!restoredPaths.includes(path)) {
-            restoredPaths.push(path);
-          }
-
-          if (restoredPaths.length === stashedDocPaths.length) {
-            resolve(true);
-          }
-        };
-
-        const handleTabFailedToRestore = (e: any, path: string) => {
-          console.log("Branch Tabs - error restoring tab: ", e);
-          handleTabRestored(path);
-        };
-
-        stashedDocPaths.forEach(async (stashedPath) => {
-          try {
-            Promise.resolve(
-              workspace.openTextDocument(Uri.file(stashedPath.path))
-            )
-              .then((openedDoc) => {
+      await Promise.all(
+        stashedDocPaths.map((stashedPath) =>
+          Promise.resolve(
+            workspace
+              .openTextDocument(Uri.file(stashedPath.path))
+              .then((openedDoc) =>
                 Promise.resolve(
                   window.showTextDocument(openedDoc, {
                     preview: false,
                     viewColumn: stashedPath.viewColumn ?? 1,
                   })
+                ).catch((e) =>
+                  console.log(`Branch Tabs - error showing tab: `, e)
                 )
-                  .then(() => handleTabRestored(stashedPath.path))
-                  .catch((e) => handleTabFailedToRestore(e, stashedPath.path));
-              })
-              .catch((e) => handleTabFailedToRestore(e, stashedPath.path));
-          } catch (e) {
-            handleTabFailedToRestore(e, stashedPath.path);
-          }
-        });
-      });
+              )
+          ).catch((e) => console.log(`Branch Tabs - error opening tab: `, e))
+        )
+      ).catch((e) => console.log(`Branch Tabs - error restoring tabs: `, e));
 
       if (!shouldAutoRestore(context)) {
         promptAutoRestore(context);

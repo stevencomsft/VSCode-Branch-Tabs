@@ -4,7 +4,7 @@
   "description": "Keeps track of tabs across branch sessions",
   "license": "MIT",
   "repository": "https://github.com/stevencomsft/VSCode-Branch-Tabs",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "stevencoMsft",
   "icon": "assets/BranchTabsIcon.png",
   "engines": {

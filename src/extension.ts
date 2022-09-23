@@ -46,9 +46,11 @@ export function activate(context: ExtensionContext) {
             if (currBranchName) {
               if (prevBranchName && prevBranchName !== currBranchName) {
                 disposeTabWatcher();
+                console.log('restoring');
                 await restoreBranchMemTabs(context, currBranchName);
               }
 
+              console.log('resetting watcher');
               resetBranchTabWatcher(
                 context,
                 currBranchName,
